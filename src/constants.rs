@@ -1,0 +1,2 @@
+
+pub const EARTH_EQUATORIAL_RADIUS_KM: f64 = 6371.3;
