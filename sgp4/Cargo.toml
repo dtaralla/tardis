@@ -2,6 +2,9 @@
 name = "sgp4"
 version = "0.1.0"
 edition = "2018"
+description = "SGP4 algorithm wrapper"
+authors = ["Detlev Casanova <detlev.casanova@gmail.com>"]
+license = "GPLv2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

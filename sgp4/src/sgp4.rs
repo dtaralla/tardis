@@ -13,13 +13,16 @@ use std::{
 
 use chrono::{
     Utc,
-    DateTime
+    DateTime,
+    Datelike,
+    Timelike
 };
 
 use crate::{
     ElsetRec,
     sgp4,
-    sgp4init
+    sgp4init,
+    jday
 };
 
 ///
@@ -255,5 +258,24 @@ impl SGP4 {
     {
         let rec = (*self.satrec).borrow();
         rec.radiusearthkm
+    }
+
+    //Compute the Julian Day corresponding to the given date/time
+    pub fn julian_day(time: DateTime<Utc>) -> f64
+    {
+        let mut jd: f64 = 0.0;
+        let mut jdfrac: f64 = 0.0;
+
+        unsafe {
+            jday(time.date().year(),
+                       time.date().month() as i32,
+                       time.date().day() as i32,
+                       time.time().hour() as i32,
+                       time.time().minute() as i32,
+                       time.time().second() as f64 + (time.time().nanosecond() as f64) / 10e9,
+                       &mut jd as *mut f64, &mut jdfrac as *mut f64);
+        }
+
+        jd + jdfrac
     }
 }
