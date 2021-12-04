@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright Contributors to the tardis project
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
@@ -15,17 +15,15 @@ use crate::utils::{
 };
 
 //FIXME: I don't like the name of this trait
-pub trait FramedElement<U: Frame> {
-    type Item: Sized;
-
-    fn change_frame(&self, new_frame: U) -> Self::Item;
+pub trait FramedElement {
+    // This function will convert the coordinates of this element into the new_frame
+    fn change_frame(&mut self, new_frame: Rc<dyn Frame>);
 
     // This function replaces the Frame of the element without conversion
-    //fn set_frame(&mut self/*, new_frame: Frame*/);
+    fn set_frame(&mut self, frame: Rc<dyn Frame>);
 }
 
 pub trait Frame {
-    fn new(time: DateTime<Utc>) -> Self;
     fn name(&self) -> String;
     //fn date_time(&self) -> DateTime<Utc>;
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright Contributors to the tardis project
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
@@ -166,37 +166,43 @@ struct NaivePoint {
 */
 
 // Geometry elements
-pub struct Point<T: Frame> {
+pub struct Point {
     coordinates: [f64; 3],
-    frame: T,
+    frame: Option<Rc<Frame>>,
 }
 
-impl<T: Frame> Point<T> {
-    pub fn new(x: f64, y: f64, z: f64) -> Point<T>
+impl Point {
+    pub fn new(x: f64, y: f64, z: f64) -> Point
     {
         Point {
             coordinates: [x, y, z],
-            frame: T::new(Utc::now()),
+            frame: None,
         }
     }
 }
 
-impl<T: Frame, U: Frame> FramedElement<U> for Point<T> {
-    type Item = Point<U>;
+impl FramedElement for Point {
+    fn change_frame(&mut self, new_frame: Rc<dyn Frame>) {
+        self.coordinates = match self.frame {
+            Some(ref f) => new_frame.from_gcrf(f.to_gcrf(self.coordinates)),
+            None => self.coordinates,
+        };
 
-    fn change_frame(&self, new_frame: U) -> Self::Item {
-        let icrs_coord = self.frame.to_gcrf(self.coordinates);
+        self.frame = Some(new_frame);
+    }
 
-        Point {
-            coordinates: new_frame.from_gcrf(icrs_coord),
-            frame: U::new(Utc::now()),
-        }
+    fn set_frame(&mut self, frame: Rc<dyn Frame>) {
+        self.frame = Some(frame);
     }
 }
 
-impl<T: Frame> fmt::Display for Point<T> {
+impl fmt::Display for Point {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Point: [{}, {}, {}]", self.coordinates[0], self.coordinates[1], self.coordinates[2])
+        let frame_name = match self.frame {
+            Some(ref f) => f.name(),
+            None => String::from("Naive"),
+        };
+        write!(f, "Point ({}) [{}, {}, {}]", frame_name, self.coordinates[0], self.coordinates[1], self.coordinates[2])
     }
 }
 
@@ -240,34 +246,32 @@ impl Plane {
     }
 }*/
 
-// Each referential will have a to_icrf() function to convert its coordinates in that frame.
-// That way, each referential can use that format to convert the coordinates into its own frame.
-pub struct Vector<T: Frame> {
+pub struct Vector {
     vector: [f64; 3],
-    frame: T,
+    frame: Option<Rc<dyn Frame>>,
 }
 
-impl<T: Frame> Vector<T> {
+impl Vector {
     /// Create a Vector from the spherical coordinates
-    pub fn from_spherical(a: Angle, b: Angle, length: f64) -> Vector<T>
+    pub fn from_spherical(a: Angle, b: Angle, length: f64) -> Vector
     {
-        Vector::<T>::from_cartesian(
+        Vector::from_cartesian(
             b.radians().cos() * a.radians().sin() * length,
             b.radians().cos() * a.radians().cos() * length,
             b.radians().sin() * length,
         )
     }
 
-    pub fn from_tuple(vector: [f64; 3]) -> Vector<T>
+    pub fn from_tuple(vector: [f64; 3]) -> Vector
     {
         Vector::from_cartesian(vector[0], vector[1], vector[2])
     }
 
-    pub fn from_cartesian(a: f64, b: f64, c: f64) -> Vector<T>
+    pub fn from_cartesian(a: f64, b: f64, c: f64) -> Vector
     {
-        Vector::<T> {
+        Vector {
             vector: [a, b, c],
-            frame: T::new(Utc::now()),
+            frame: None,
         }
     }
 
@@ -277,13 +281,13 @@ impl<T: Frame> Vector<T> {
     }
 
     /// Return the Angle between this vector and the other
-    pub fn angle(&self, other: &Vector<T>) -> Angle
+    pub fn angle(&self, other: &Vector) -> Angle
     {
         Angle::from_vectors(self, other)
     }
 
     /// Return the vector projected on the given plane
-    /*pub fn project(&self, plane: Plane) -> Vector<T>
+    /*pub fn project(&self, plane: Plane) -> Vector
     {
         let n = &plane.normal_vector();
         let mult = (self*n) / n.length().powi(2);
@@ -319,21 +323,26 @@ impl<T: Frame> Vector<T> {
     }
 }
 
-impl<T: Frame> fmt::Display for Vector<T> {
+impl fmt::Display for Vector {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Vector<{}>: [{}, {}, {}]", self.frame.name(), self[0], self[1], self[2])
+        let frame_name = match self.frame {
+            Some(ref f) => f.name(),
+            None => String::from("Naive"),
+        };
+
+        write!(f, "Vector ({}): [{}, {}, {}]", frame_name, self[0], self[1], self[2])
     }
 }
 
-impl<T: Frame> Clone for Vector<T> {
+impl Clone for Vector {
     fn clone(&self) -> Self {
         Vector::from_tuple(self.vector)
     }
 }
 
 
-impl<T: Frame> Add for Vector<T> {
-    type Output = Vector<T>;
+impl Add for Vector {
+    type Output = Vector;
 
     fn add(self, rhs: Self) -> Self::Output {
         Vector::from_cartesian(
@@ -344,23 +353,23 @@ impl<T: Frame> Add for Vector<T> {
     }
 }
 
-impl<'a, 'b, T: Frame> Add<&'b Vector<T>> for &'a Vector<T> {
-    type Output = Vector<T>;
+impl<'a, 'b> Add<&'b Vector> for &'a Vector {
+    type Output = Vector;
 
-    fn add(self, other: &'b Vector<T>) -> Vector<T>
+    fn add(self, other: &'b Vector) -> Vector
     {
-        Vector::<T>::from_cartesian(
+        Vector::from_cartesian(
             self.vector[0] + other.vector[0],
             self.vector[1] + other.vector[1],
             self.vector[2] + other.vector[2])
     }
 }
 
-impl<T: Frame> Sub for Vector<T> {
-    type Output = Vector<T>;
+impl Sub for Vector {
+    type Output = Vector;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Vector::<T>::from_cartesian(
+        Vector::from_cartesian(
             self.vector[0] - rhs.vector[0],
             self.vector[1] - rhs.vector[1],
             self.vector[2] - rhs.vector[2],
@@ -368,11 +377,11 @@ impl<T: Frame> Sub for Vector<T> {
     }
 }
 
-impl<'a, 'b, T: Frame> Sub<&'b Vector<T>> for &'a Vector<T> {
-    type Output = Vector<T>;
+impl<'a, 'b> Sub<&'b Vector> for &'a Vector {
+    type Output = Vector;
 
-    fn sub(self, other: &'b Vector<T>) -> Self::Output {
-        Vector::<T>::from_cartesian(
+    fn sub(self, other: &'b Vector) -> Self::Output {
+        Vector::from_cartesian(
             self.vector[0] - other.vector[0],
             self.vector[1] - other.vector[1],
             self.vector[2] - other.vector[2],
@@ -380,7 +389,7 @@ impl<'a, 'b, T: Frame> Sub<&'b Vector<T>> for &'a Vector<T> {
     }
 }
 
-impl<T: Frame> Mul for Vector<T> {
+impl Mul for Vector {
     type Output = f64;
 
     /// Return the scalar product of the 2 Vectors
@@ -389,17 +398,17 @@ impl<T: Frame> Mul for Vector<T> {
     }
 }
 
-impl<'a, 'b, T: Frame> Mul<&'b Vector<T>> for &'a Vector<T> {
+impl<'a, 'b> Mul<&'b Vector> for &'a Vector {
     type Output = f64;
 
     /// Return the scalar product of the 2 Vectors
-    fn mul(self, other: &'b Vector<T>) -> Self::Output {
+    fn mul(self, other: &'b Vector) -> Self::Output {
         self[0] * other[0] + self[1] * other[1] + self[2] * other[2]
     }
 }
 
 
-impl<T: Frame> Index<usize> for Vector<T> {
+impl Index<usize> for Vector {
     type Output = f64;
 
     fn index(&self, idx: usize) -> &Self::Output {
@@ -408,7 +417,7 @@ impl<T: Frame> Index<usize> for Vector<T> {
 }
 
 
-impl<T: Frame> PartialEq for Vector<T> {
+impl PartialEq for Vector {
     fn eq(&self, other: &Self) -> bool {
         self.vector[0].eq(&other.vector[0]) &&
             self.vector[1].eq(&other.vector[1]) &&
@@ -416,18 +425,20 @@ impl<T: Frame> PartialEq for Vector<T> {
     }
 }
 
-impl<T: Frame> Eq for Vector<T> {}
+impl Eq for Vector {}
 
-impl<T: Frame, U: Frame> FramedElement<U> for Vector<T> {
-    type Item = Vector<U>;
+impl FramedElement for Vector {
+    fn change_frame(&mut self, new_frame: Rc<dyn Frame>) {
+        self.vector = match self.frame {
+            Some(ref f) => new_frame.from_gcrf(f.to_gcrf(self.vector)),
+            None => self.vector,
+        };
 
-    fn change_frame(&self, new_frame: U) -> Self::Item {
-        let gcrf_coord = self.frame.to_gcrf(self.vector);
+        self.frame = Some(new_frame);
+    }
 
-        Vector {
-            vector: new_frame.from_gcrf(gcrf_coord),
-            frame: new_frame,
-        }
+    fn set_frame(&mut self, frame: Rc<dyn Frame>) {
+        self.frame = Some(frame);
     }
 }
 
@@ -454,7 +465,7 @@ impl Angle {
     }
 
     /// Create an Angle form the value of the angle formed by the give vectors
-    pub fn from_vectors<T: Frame>(a: &Vector<T>, b: &Vector<T>) -> Angle
+    pub fn from_vectors(a: &Vector, b: &Vector) -> Angle
     {
         let den = a.length() * b.length();
         if den == 0f64 {

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright Contributors to the tardis project
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
@@ -10,7 +10,8 @@ use sgp4::sgp4::SGP4Result;
 use crate::constants::EARTH_EQUATORIAL_RADIUS_KM;
 use crate::geometry::{Angle, Vector};
 use crate::frames;
-use crate::frames::GCRF;
+use crate::frames::{ECEF, GCRF};
+use crate::traits::FramedElement;
 
 #[derive(Copy, Clone)]
 pub struct Coordinates {
@@ -27,14 +28,19 @@ impl Coordinates {
         }
     }
 
-    /// Return a Vector from the planet center to the observer position in the given referential
-    pub fn to_vector(&self) -> Vector<frames::ECEF>
+    /// Return a the position of the observer as a vector.
+    /// TODO: This should actually be changed to a Frame.
+    pub fn to_vector(&self) -> Vector
     {
-        Vector::from_spherical(
+        let mut v = Vector::from_spherical(
             Angle::from_degrees(self.lon),
             Angle::from_degrees(self.lat),
             EARTH_EQUATORIAL_RADIUS_KM
-        )
+        );
+
+        v.set_frame(Rc::new(ECEF::new(Utc::now())));
+
+        v
     }
 }
 
@@ -104,8 +110,8 @@ impl Observer {
 pub struct Observation {
     pub time: DateTime<Utc>,        // The time at which this observation is valid
     pub observer: Observer,         // Observer on earth
-    pub position: Vector<GCRF>,
-    pub speed: Vector<GCRF>,
+    pub position: Vector,
+    pub speed: Vector,
     pub brightness: f64             // Brightness of the satellite
 }
 

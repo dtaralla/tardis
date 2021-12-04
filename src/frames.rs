@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright Contributors to the tardis project
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
@@ -28,6 +28,12 @@ pub struct TEME {
 }
 
 impl TEME {
+    pub(crate) fn new(date_time: DateTime<Utc>) -> TEME {
+        TEME {
+            date_time
+        }
+    }
+
     fn mod_to_gcrf_fk5(tt: f64) -> Matrix {
         let precession = kf5::precession(tt);
         Matrix::rot_from_angles(precession[2], -precession[1], precession[0], RotationAxis::ZYZ)
@@ -99,12 +105,6 @@ impl TEME {
 }
 
 impl Frame for TEME {
-    fn new(date_time: DateTime<Utc>) -> Self {
-        TEME {
-            date_time
-        }
-    }
-
     fn name(&self) -> String {
         String::from("TEME")
     }
@@ -129,13 +129,15 @@ impl Frame for TEME {
 pub struct GCRF {
     date_time: DateTime<Utc>,
 }
-
-impl Frame for GCRF {
-    fn new(date_time: DateTime<Utc>) -> Self {
+impl GCRF {
+    fn new(date_time: DateTime<Utc>) -> GCRF {
         GCRF {
             date_time
         }
     }
+}
+
+impl Frame for GCRF {
     fn name(&self) -> String {
         String::from("GCRF")
     }
@@ -157,13 +159,15 @@ pub struct ECEF {
     date_time: DateTime<Utc>,
 }
 
-impl Frame for ECEF {
-    fn new(date_time: DateTime<Utc>) -> Self {
+impl ECEF {
+    pub(crate) fn new(date_time: DateTime<Utc>) -> ECEF {
         ECEF {
             date_time
         }
     }
+}
 
+impl Frame for ECEF {
     fn name(&self) -> String {
         String::from("ECEF") + &self.date_time.to_string()
     }

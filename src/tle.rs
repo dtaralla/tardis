@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright Contributors to the tardis project
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
@@ -474,32 +474,19 @@ impl Observable for TLE {
 
         /// Compute azimuth angle //TODO: move it to a Frame conversion
         //1. Project res.position_vect() on observer plane.
-        let pos_vect = Vector::<TEME>::from_tuple(res.position_vect());
-        let speed_vect = Vector::<TEME>::from_tuple(res.velocity_vect());
-        /*let obs_plane = match obs.plane() {
-            Ok(p) =>
-                p,//.change_referential(ecliptic_ref),
-            Err(e) =>
-                return Err(String::from("Cannot get observer plane: ") + &e),
-        };
-        let proj = pos_vect.project(obs_plane);
-*/
-        //2. Compute the angle between I and the projection
-        //let azimuth = Angle::from_degrees(42.0);//proj.angle(&I);
+        let teme_frame: Rc<dyn Frame> = Rc::new(TEME::new(time));
 
-        //println!("{} {}", proj, I);
+        let mut pos_vect = Vector::from_tuple(res.position_vect());
+        pos_vect.set_frame(Rc::clone(&teme_frame));
 
-        /// Compute altitude angle //TODO: move it to a Frame conversion
-        //let altitude = Angle::from_degrees(35f64);
-        //1. Find vector that goes from observer to satellite (r - o)
-        //2. Project that vector on the observer plane
-        //3. Compute angle between the vector and its projection
+        let mut speed_vect = Vector::from_tuple(res.velocity_vect());
+        speed_vect.set_frame(Rc::clone(&teme_frame));
 
         Ok(Observation {
             time,
             observer: *obs,
-            position: pos_vect.change_frame(GCRF::new(time)),
-            speed: speed_vect.change_frame(GCRF::new(time)),
+            position: pos_vect,
+            speed: speed_vect,
             brightness: 0f64
         })
     }
