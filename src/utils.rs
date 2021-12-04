@@ -1,9 +1,16 @@
+/**
+ * Copyright Contributors to the tardis project
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ */
+
 use std::fmt;
 use std::rc::Rc;
 use chrono::{DateTime, Utc};
 use sgp4::sgp4::SGP4Result;
 use crate::constants::EARTH_EQUATORIAL_RADIUS_KM;
-use crate::geometry::{Angle, Plane, Referential, Vector};
+use crate::geometry::{Angle, Vector};
+use crate::frames;
+use crate::frames::GCRF;
 
 #[derive(Copy, Clone)]
 pub struct Coordinates {
@@ -21,16 +28,13 @@ impl Coordinates {
     }
 
     /// Return a Vector from the planet center to the observer position in the given referential
-    pub fn to_vector(&self/*, referential: &Referential*/) -> Vector
+    pub fn to_vector(&self) -> Vector<frames::ECEF>
     {
-        let vector = Vector::from_spherical(
+        Vector::from_spherical(
             Angle::from_degrees(self.lon),
             Angle::from_degrees(self.lat),
             EARTH_EQUATORIAL_RADIUS_KM
-        );
-
-        // TODO: give that vector a referential
-        vector
+        )
     }
 }
 
@@ -67,14 +71,7 @@ impl Observer {
         self.coordinates
     }
 
-    pub fn plane(&self) -> Result<Plane, String>
-    {
-        self.plane_with_ref(Referential::base_referential())
-    }
-
-    /// Return a plane that is in the given Referential.
-    /// No referential change is done:
-    pub fn plane_with_ref(&self, referential: Rc<Referential>) -> Result<Plane, String>
+    /*pub fn plane(&self) -> Result<Plane, String>
     {
         let obs_vector = self.coordinates.to_vector();
 
@@ -95,34 +92,29 @@ impl Observer {
 
         //println!("{} {} {}", obs_vector, base_vect1, base_vect2);
 
-        Plane::from_vectors_normal_with_ref(&obs_vector,
+        Plane::from_vectors_normal(&obs_vector,
                                         &base_vect1,
-                                        &base_vect2,
-                                        referential
+                                        &base_vect2
         )
-    }
+    }*/
 }
 
 ///
-/// Specifies how the Space Object can be observed from a given position on earth at a given time.
+/// Specifies where the observable obkect is in GCRF coordinates
 pub struct Observation {
     pub time: DateTime<Utc>,        // The time at which this observation is valid
     pub observer: Observer,         // Observer on earth
-    pub azimuth: Angle,             // This is the orientation to look for (North, East,...)
-    pub altitude: Angle,            // Altitude angle: Positive is above the horizon, negative under.
-    pub sgp4: Option<SGP4Result>,   // The result as given by the SGP4 library // Only keep if specific to earth satellite (could be an option)
-    //pub position: Vector<_>,
-    //pub speed: Vector<_>,
-    //
+    pub position: Vector<GCRF>,
+    pub speed: Vector<GCRF>,
     pub brightness: f64             // Brightness of the satellite
 }
 
 impl fmt::Display for Observation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Observation at {} from {}: azimuth: {} altitude: {}",
+        write!(f, "Observation at {} from {}: position: {} speed: {}",
                self.time,
                self.observer.coordinates,
-               self.azimuth,
-               self.altitude)
+               self.position,
+               self.speed)
     }
 }

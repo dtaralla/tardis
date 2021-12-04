@@ -1,6 +1,6 @@
-
-/*
-
+/**
+ * Copyright Contributors to the tardis project
+ * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
 use chrono::{DateTime, Utc};
@@ -8,6 +8,8 @@ use sgp4::sgp4::SGP4;
 use crate::geometry::{Angle, Vector};
 use crate::traits::Observable;
 use crate::utils::{Observation, Observer};
+
+const EARTH_SUN_DISTANCE_KM: u64 = 147_440_000;
 
 struct Sun {
     val: u32
@@ -43,11 +45,10 @@ impl Observable for Sun {
 
         Ok(Observation {
             observer: *observer,
-            sgp4: None, //--> Provide generics Observation could also be a trait instead
             brightness: 1.0,
             time,
-            altitude: Angle::from_degrees(0.0),
-            azimuth: ecliptic_lon, //That's elliptic coordinates, TODO: compute horizontal coordinates form observer's position
+            position: Vector::from_spherical(Angle::from_degrees(0.0), ecliptic_lon, EARTH_SUN_DISTANCE_KM as f64),
+            speed: Vector::from_cartesian(0.0, 0.0, 0.0),
         })
     }
 }

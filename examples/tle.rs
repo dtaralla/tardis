@@ -1,7 +1,30 @@
+/**
+ * Copyright Contributors to the tardis project
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ */
+
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
+use tardis::geometry::Point;
 use tardis::tle::TLE;
-use tardis::traits::Observable;
+use tardis::traits::{Frame, FramedElement, Observable};
+use tardis::frames::{
+    TEME,
+    ECEF
+};
 
 use tardis::utils::{Coordinates, Observer};
+
+/*
+fn main() {
+    let p = Point::<TEME>::new(1.1, 1.2, 1.3);
+    let p2= p.change_frame(ECEF::new(Utc::now()));
+    println!("{} {}", p, p2);
+
+    let teme = TEME::new(DateTime::from_utc(NaiveDate::from_ymd(2021, 11, 15).and_hms(12, 0, 0), Utc));
+    println!("{:?}", teme.to_gcrf([1000.0, 1000.0, 1000.0]));
+    println!("{:?}", teme.from_gcrf(teme.to_gcrf([1000.0, 1000.0, 1000.0])));
+}
+*/
 
 fn main() -> Result<(), String> {
     let tle_lines = vec![

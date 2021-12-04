@@ -1,3 +1,8 @@
+/**
+ * Copyright Contributors to the tardis project
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ */
+
 use std::{
     fmt,
     f64::consts::PI,
@@ -6,14 +11,10 @@ use std::rc::Rc;
 use chrono::{Utc, DateTime, Duration, NaiveDate, NaiveTime};
 use sgp4::sgp4::{ConstantsSet, OpsMode, SGP4};
 
-use crate::geometry::{
-    Angle,
-    Plane,
-    Vector,
-    Referential
-};
+use crate::geometry::{Angle, Vector};
+use crate::frames::{TEME, GCRF};
 use crate::utils::{Coordinates, Observation, Observer};
-use crate::traits::{Observable, ReferencedElement};
+use crate::traits::{FramedElement, Observable, Frame};
 
 pub enum SatelliteClass {
     Unclassified,
@@ -424,12 +425,12 @@ impl Observable for TLE {
 
     fn observation_at(&self, obs: &Observer, time: DateTime<Utc>) -> Result<Observation, String>
     {
-        let I = Vector::from_tuple([1f64, 0f64, 0f64]);
-        let J = Vector::from_tuple([0f64, 1f64, 0f64]);
-        let K = Vector::from_tuple([0f64, 0f64, 1f64]);
+        //let I = Vector::from_tuple([1f64, 0f64, 0f64]);
+        //let J = Vector::from_tuple([0f64, 1f64, 0f64]);
+        //let K = Vector::from_tuple([0f64, 0f64, 1f64]);
 
         // Initialize coordinate references
-        let ecliptic_ref = Referential::base_referential();
+        /*let ecliptic_ref = Referential::base_referential();
         let horizontal_ref = Rc::new(ecliptic_ref.make_referential(
             None,
             Some(
@@ -439,7 +440,7 @@ impl Observable for TLE {
                     Angle::from_radians(0.0)
                 ]
             )
-        ));
+        ));*/
 
         let sgp4 = match SGP4::new(
             OpsMode::Afspc,
@@ -471,24 +472,25 @@ impl Observable for TLE {
         //println!("[{}] Satellite {} is at {} km moving at {} km/s", res.time(), self.name(), res.altitude(), res.velocity());
         //println!("{}", Angle::from_vectors(&I, &J));
 
-        /// Compute azimuth angle //TODO: move it to Observation
+        /// Compute azimuth angle //TODO: move it to a Frame conversion
         //1. Project res.position_vect() on observer plane.
-        let pos_vect = Vector::from_tuple(res.position_vect());
-        let obs_plane = match obs.plane_with_ref(horizontal_ref) {
+        let pos_vect = Vector::<TEME>::from_tuple(res.position_vect());
+        let speed_vect = Vector::<TEME>::from_tuple(res.velocity_vect());
+        /*let obs_plane = match obs.plane() {
             Ok(p) =>
                 p,//.change_referential(ecliptic_ref),
             Err(e) =>
                 return Err(String::from("Cannot get observer plane: ") + &e),
         };
         let proj = pos_vect.project(obs_plane);
-
+*/
         //2. Compute the angle between I and the projection
-        let azimuth = proj.angle(&I);
+        //let azimuth = Angle::from_degrees(42.0);//proj.angle(&I);
 
         //println!("{} {}", proj, I);
 
-        /// Compute altitude angle //TODO: move it to Observation
-        let altitude = Angle::from_degrees(35f64);
+        /// Compute altitude angle //TODO: move it to a Frame conversion
+        //let altitude = Angle::from_degrees(35f64);
         //1. Find vector that goes from observer to satellite (r - o)
         //2. Project that vector on the observer plane
         //3. Compute angle between the vector and its projection
@@ -496,9 +498,8 @@ impl Observable for TLE {
         Ok(Observation {
             time,
             observer: *obs,
-            azimuth,
-            altitude,
-            sgp4: Some(res),
+            position: pos_vect.change_frame(GCRF::new(time)),
+            speed: speed_vect.change_frame(GCRF::new(time)),
             brightness: 0f64
         })
     }

@@ -1,3 +1,8 @@
+/**
+ * Copyright Contributors to the tardis project
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ */
+
 use std::env;
 use std::path::PathBuf;
 use cc;

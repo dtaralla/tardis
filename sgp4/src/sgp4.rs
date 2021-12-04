@@ -1,3 +1,8 @@
+/**
+ * Copyright Contributors to the tardis project
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ */
+
 /* This is a wrapper for the C SGP4 algoritm.
  * It provides a rust-like interface to use the sgp4 algorithm.
  */

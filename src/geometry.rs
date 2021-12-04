@@ -1,3 +1,8 @@
+/**
+ * Copyright Contributors to the tardis project
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ */
+
 use std::{
     fmt,
     ops::Add,
@@ -7,63 +12,202 @@ use std::{
     cmp::PartialEq,
     f64::consts::PI,
 };
+use std::fmt::{Display, Formatter};
 use std::ops::Index;
 use std::rc::Rc;
-use crate::traits::ReferencedElement;
+use chrono::{DateTime, Timelike, Utc};
+use sgp4::sgp4::SGP4;
+use crate::traits::{Frame, FramedElement};
+use crate::kf5::{nutation, precession};
+use crate::time::{get_leap_seconds, jd_utc_to_tt};
 
-pub struct Referential {
-    translation: Option<Vector>,
-    rotation: Option<[Angle; 3]>,
-    is_base: bool,
+pub enum RotationAxis {
+    ZYZ,
+    ZYX,
+    XZX,
 }
 
-//TODO: Each geometrical element could implement a Referential Trait that makes it able to go from one to another
-impl Referential {
-    /// The base referential is the one placed at (0,0,0).
-    /// All the other ones are based on this one
-    /// TODO: Find a ways to use a Rc for this referential
-    const BASE_REFERENTIAL: Referential = Referential {
-        translation: None,
-        rotation: None,
-        is_base: true,
-    };
+pub struct Matrix {
+    values: [[f64; 3]; 3],
+}
 
-    pub fn base_referential() -> Rc<Referential> {
-        Rc::new(Referential::BASE_REFERENTIAL)
+impl Display for Matrix {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Matrix:\n [\n  {:?}\n  {:?}\n  {:?}\n ]", self.values[0], self.values[1], self.values[2])
+    }
+}
+
+impl Matrix {
+    pub fn new(values: [[f64; 3]; 3]) -> Matrix {
+        Matrix {
+            values
+        }
     }
 
-    pub fn make_referential(&self, translation: Option<Vector>, rotation: Option<[Angle; 3]>) -> Referential
+    pub fn determinant(&self) -> f64 {
+        self.values[0][0] * self.values[1][1] * self.values[2][2] - self.values[0][0] * self.values[1][2] * self.values[2][1] +
+            self.values[0][1] * self.values[1][0] * self.values[2][2] - self.values[0][1] * self.values[1][2] * self.values[2][0] +
+            self.values[0][2] * self.values[1][0] * self.values[2][1] - self.values[0][2] * self.values[1][1] * self.values[2][0]
+    }
+
+    pub fn transpose(&self) -> Matrix {
+        Matrix {
+            values: [[self.values[0][0], self.values[1][0], self.values[2][0]],
+                [self.values[0][1], self.values[1][1], self.values[2][1]],
+                [self.values[0][2], self.values[1][2], self.values[2][2]]]
+        }
+    }
+
+    pub fn invert(&self) -> Result<Matrix, String> {
+        let det = self.determinant();
+
+        if det.abs() - 0.0 < 1e-10 {
+            return Err(String::from("Matrix cannot be inverted"));
+        }
+
+        let t = self.transpose();
+
+        Ok(Matrix::new([[t.values[0][0] / det, t.values[0][1] / det, t.values[0][2] / det],
+            [t.values[1][0] / det, t.values[1][1] / det, t.values[1][2] / det],
+            [t.values[2][0] / det, t.values[2][1] / det, t.values[2][2] / det]]
+        ))
+    }
+
+    pub fn compose(a: Matrix, b: Matrix) -> Matrix {
+        let mut ret = Matrix {
+            values: [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0]
+            ]
+        };
+
+        let mut i = 0;
+        let mut j = 0;
+        let mut k = 0;
+
+        for i in 0..3 {
+            for j in 0..3 {
+                for k in 0..3 {
+                    ret.values[i][j] += a.values[i][k] * b.values[k][j];
+                }
+            }
+        }
+
+        ret
+    }
+
+    ///
+    /// Compute a rotation matrix from the 3 angles, with the given Rotation axis
+    /// TODO: Understand the rotation axis argument
+    /// TODO: Use Angles instead of f64
+    pub fn rot_from_angles(a: f64, b: f64, c: f64, r: RotationAxis) -> Matrix {
+        let sx = a.sin();
+        let cx = a.cos();
+        let sy = b.sin();
+        let cy = b.cos();
+        let sz = c.sin();
+        let cz = c.cos();
+
+        match r {
+            RotationAxis::ZYZ => Matrix::new(
+                [[cx * cz * cy - sx * sz, sx * cz * cy + cx * sz, -sy * cz],
+                    [-cx * cy * sz - sx * cz, -sx * cy * sz + cx * cz, sy * sz],
+                    [cx * sy, sx * sy, cy]]
+            ),
+
+            RotationAxis::ZYX => Matrix::new(
+                [[cx * cy, cy * sx, -sy],
+                    [sz * sy * cx - cz * sx, sz * sy * sx + cz * cx, sz * cy],
+                    [cz * sy * cx + sz * sx, cz * sy * sx - sz * cx, cz * cy]]
+            ),
+
+            RotationAxis::XZX => Matrix::new(
+                [[cy, cx * sy, sx * sy],
+                    [-sy * cz, cx * cz * cy - sx * sz, sx * cz * cy + cx * sz],
+                    [sy * sz, -cx * cy * sz - sx * cz, -sx * cy * sz + cx * cz]]
+            ),
+        }
+    }
+
+    pub fn rotate(&self, point: [f64; 3]) -> [f64; 3] {
+        ///
+        /// M x p:
+        ///
+        /// x1 x2 x3     xp
+        /// y1 y2 y3  x  yp
+        /// z1 z2 z3     zp
+        ///
+        /// xp' = x1 * xp + x2 * yp + x3 * zp
+        /// yp' = y1 * xp + y2 * yp + y3 * zp
+        /// zp' = z1 * xp + z2 * yp + z3 * zp
+        ///
+
+        let m = self.values;
+        let p = point;
+
+        [
+            m[0][0] * p[0] + m[0][1] * p[1] + m[0][2] * p[2],
+            m[1][0] * p[0] + m[1][1] * p[1] + m[1][2] * p[2],
+            m[2][0] * p[0] + m[2][1] * p[1] + m[2][2] * p[2]
+        ]
+    }
+}
+
+/*
+TODO: This is a point with no Frame, used for convenience. A method
+   framed(frame: Frame) -> Point<Frame>
+ will allow creation of a framed Point
+ This is useful to create a simple point and have its frame set later
+
+struct NaivePoint {
+    coordinates: [f64; 3]
+}
+*/
+
+// Geometry elements
+pub struct Point<T: Frame> {
+    coordinates: [f64; 3],
+    frame: T,
+}
+
+impl<T: Frame> Point<T> {
+    pub fn new(x: f64, y: f64, z: f64) -> Point<T>
     {
-        // We don't chain or keep references to parent referentials.
-        // All Referential instance is against the base referential.
-        // In a first time, only support making a referential from the base one.
-        Referential {
-            translation,
-            rotation,
-            is_base: false
+        Point {
+            coordinates: [x, y, z],
+            frame: T::new(Utc::now()),
         }
     }
 }
 
+impl<T: Frame, U: Frame> FramedElement<U> for Point<T> {
+    type Item = Point<U>;
+
+    fn change_frame(&self, new_frame: U) -> Self::Item {
+        let icrs_coord = self.frame.to_gcrf(self.coordinates);
+
+        Point {
+            coordinates: new_frame.from_gcrf(icrs_coord),
+            frame: U::new(Utc::now()),
+        }
+    }
+}
+
+impl<T: Frame> fmt::Display for Point<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Point: [{}, {}, {}]", self.coordinates[0], self.coordinates[1], self.coordinates[2])
+    }
+}
+
 /// A plane is defined by 3 points
-pub struct Plane {
+/*pub struct Plane {
     points: [Vector; 3],
     normal: Option<Vector>,
-    referential: Rc<Referential>,
 }
 
 impl Plane {
     pub fn from_vectors(a: &Vector, b: &Vector, c: &Vector) -> Result<Plane, String>
-    {
-        Plane::from_vectors_with_ref(a, b, c,Referential::base_referential())
-    }
-
-    pub fn from_vectors_normal(normal: &Vector, b: &Vector, c: &Vector, referential: Rc<Referential>) -> Result<Plane, String>
-    {
-        Plane::from_vectors_normal_with_ref(normal, b, c,Referential::base_referential())
-    }
-
-    pub fn from_vectors_with_ref(a: &Vector, b: &Vector, c: &Vector, referential: Rc<Referential>) -> Result<Plane, String>
     {
         if a == b || b == c || c == a {
             return Err(String::from("The vectors must all be different"));
@@ -72,13 +216,13 @@ impl Plane {
         Ok(Plane {
             points: [a.clone(), b.clone(), c.clone()],
             normal: None,
-            referential: Rc::clone(&referential)
+            //referential: Rc::clone(&referential)
         })
     }
 
-    pub fn from_vectors_normal_with_ref(normal: &Vector, b: &Vector, c: &Vector, referential: Rc<Referential>) -> Result<Plane, String>
+    pub fn from_vectors_normal(normal: &Vector, b: &Vector, c: &Vector) -> Result<Plane, String>
     {
-        return match Plane::from_vectors_with_ref(normal, b, c, referential) {
+        return match Plane::from_vectors(normal, b, c) {
             Ok(mut p) => {
                 p.normal = Some(normal.clone());
                 Ok(p)
@@ -94,74 +238,37 @@ impl Plane {
             None => Vector::from_cartesian(0., 0., 0.) //TODO: Compute a normal vector
         }
     }
-}
-
-//TODO: Find a better name ?
-impl ReferencedElement for Plane {
-    type Item = Plane;
-
-    fn change_referential(&self, referential: Rc<Referential>) -> Self::Item {
-        //TODO: Perform the translation and rotation of the Vector
-        //TODO: Set a reference to the new referential
-        todo!()
-    }
-
-    fn referential(&self) -> Rc<Referential> {
-        Rc::clone(&self.referential)
-    }
-}
+}*/
 
 // Each referential will have a to_icrf() function to convert its coordinates in that frame.
 // That way, each referential can use that format to convert the coordinates into its own frame.
-pub struct Vector {
+pub struct Vector<T: Frame> {
     vector: [f64; 3],
-    referential: Rc<Referential>,
+    frame: T,
 }
 
-impl Vector {
-    /// Create a Vector from the cartesian coordinates
-    pub fn from_cartesian(a: f64, b: f64, c: f64) -> Vector
-    {
-        Vector::from_cartesian_with_ref(a, b, c, Referential::base_referential())
-    }
-
+impl<T: Frame> Vector<T> {
     /// Create a Vector from the spherical coordinates
-    pub fn from_spherical(a: Angle, b: Angle, length: f64) -> Vector
+    pub fn from_spherical(a: Angle, b: Angle, length: f64) -> Vector<T>
     {
-        Vector::from_cartesian(
+        Vector::<T>::from_cartesian(
             b.radians().cos() * a.radians().sin() * length,
             b.radians().cos() * a.radians().cos() * length,
-            b.radians().sin() * length
+            b.radians().sin() * length,
         )
     }
 
-    pub fn from_tuple(vector: [f64; 3]) -> Vector
+    pub fn from_tuple(vector: [f64; 3]) -> Vector<T>
     {
         Vector::from_cartesian(vector[0], vector[1], vector[2])
     }
 
-    pub fn from_cartesian_with_ref(a: f64, b: f64, c: f64, referential: Rc<Referential>) -> Vector
+    pub fn from_cartesian(a: f64, b: f64, c: f64) -> Vector<T>
     {
-        Vector {
+        Vector::<T> {
             vector: [a, b, c],
-            referential: Rc::clone(&referential)
+            frame: T::new(Utc::now()),
         }
-    }
-
-    /// Create a Vector from the spherical coordinates
-    pub fn from_spherical_with_ref(a: Angle, b: Angle, length: f64, referential: Rc<Referential>) -> Vector
-    {
-        Vector::from_cartesian_with_ref(
-            b.radians().cos() * a.radians().sin() * length,
-            b.radians().cos() * a.radians().cos() * length,
-            b.radians().sin() * length,
-            referential
-        )
-    }
-
-    pub fn from_tuple_with_ref(vector: [f64; 3], referential: Rc<Referential>) -> Vector
-    {
-        Vector::from_cartesian_with_ref(vector[0], vector[1], vector[2], referential)
     }
 
     pub fn length(&self) -> f64
@@ -170,13 +277,13 @@ impl Vector {
     }
 
     /// Return the Angle between this vector and the other
-    pub fn angle(&self, other: &Vector) -> Angle
+    pub fn angle(&self, other: &Vector<T>) -> Angle
     {
         Angle::from_vectors(self, other)
     }
 
     /// Return the vector projected on the given plane
-    pub fn project(&self, plane: Plane) -> Vector
+    /*pub fn project(&self, plane: Plane) -> Vector<T>
     {
         let n = &plane.normal_vector();
         let mult = (self*n) / n.length().powi(2);
@@ -186,6 +293,24 @@ impl Vector {
             mult * n[1],
             mult * n[2],
         )
+    }*/
+
+    /// Return the polar angle of the spherical coordinates of the vector
+    pub fn polar_angle(&self) -> Angle
+    {
+        todo!()
+    }
+
+    /// Return the azimuth angle of the spherical coordinates of the vector
+    pub fn azimuth_angle(&self) -> Angle
+    {
+        todo!()
+    }
+
+    /// Return the radial distance of the spherical coordinates of the vector
+    pub fn radial_distance(&self) -> f64
+    {
+        todo!()
     }
 
     pub fn is_null(&self) -> bool
@@ -194,35 +319,21 @@ impl Vector {
     }
 }
 
-impl fmt::Display for Vector {
+impl<T: Frame> fmt::Display for Vector<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Vector: [{}, {}, {}]", self[0], self[1], self[2])
+        write!(f, "Vector<{}>: [{}, {}, {}]", self.frame.name(), self[0], self[1], self[2])
     }
 }
 
-impl Clone for Vector {
+impl<T: Frame> Clone for Vector<T> {
     fn clone(&self) -> Self {
-        Vector::from_tuple_with_ref(self.vector, Rc::clone(&self.referential))
+        Vector::from_tuple(self.vector)
     }
 }
 
-//TODO: Find a better name ?
-impl ReferencedElement for Vector {
-    type Item = Vector;
 
-    fn change_referential(&self, referential: Rc<Referential>) -> Self::Item {
-        //TODO: Perform the translation and rotation of the Vector
-        //TODO: Set a reference to the new referential
-        todo!()
-    }
-
-    fn referential(&self) -> Rc<Referential> {
-        Rc::clone(&self.referential)
-    }
-}
-
-impl Add for Vector {
-    type Output = Vector;
+impl<T: Frame> Add for Vector<T> {
+    type Output = Vector<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
         Vector::from_cartesian(
@@ -233,23 +344,23 @@ impl Add for Vector {
     }
 }
 
-impl<'a, 'b> Add<&'b Vector> for &'a Vector {
-    type Output = Vector;
+impl<'a, 'b, T: Frame> Add<&'b Vector<T>> for &'a Vector<T> {
+    type Output = Vector<T>;
 
-    fn add(self, other: &'b Vector) -> Vector
+    fn add(self, other: &'b Vector<T>) -> Vector<T>
     {
-        Vector::from_cartesian(
+        Vector::<T>::from_cartesian(
             self.vector[0] + other.vector[0],
             self.vector[1] + other.vector[1],
             self.vector[2] + other.vector[2])
     }
 }
 
-impl Sub for Vector {
-    type Output = Vector;
+impl<T: Frame> Sub for Vector<T> {
+    type Output = Vector<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Vector::from_cartesian(
+        Vector::<T>::from_cartesian(
             self.vector[0] - rhs.vector[0],
             self.vector[1] - rhs.vector[1],
             self.vector[2] - rhs.vector[2],
@@ -257,11 +368,11 @@ impl Sub for Vector {
     }
 }
 
-impl<'a, 'b> Sub<&'b Vector> for &'a Vector {
-    type Output = Vector;
+impl<'a, 'b, T: Frame> Sub<&'b Vector<T>> for &'a Vector<T> {
+    type Output = Vector<T>;
 
-    fn sub(self, other: &'b Vector) -> Self::Output {
-        Vector::from_cartesian(
+    fn sub(self, other: &'b Vector<T>) -> Self::Output {
+        Vector::<T>::from_cartesian(
             self.vector[0] - other.vector[0],
             self.vector[1] - other.vector[1],
             self.vector[2] - other.vector[2],
@@ -269,7 +380,7 @@ impl<'a, 'b> Sub<&'b Vector> for &'a Vector {
     }
 }
 
-impl Mul for Vector {
+impl<T: Frame> Mul for Vector<T> {
     type Output = f64;
 
     /// Return the scalar product of the 2 Vectors
@@ -278,16 +389,17 @@ impl Mul for Vector {
     }
 }
 
-impl<'a, 'b> Mul<&'b Vector> for &'a Vector {
+impl<'a, 'b, T: Frame> Mul<&'b Vector<T>> for &'a Vector<T> {
     type Output = f64;
 
     /// Return the scalar product of the 2 Vectors
-    fn mul(self, other: &'b Vector) -> Self::Output {
+    fn mul(self, other: &'b Vector<T>) -> Self::Output {
         self[0] * other[0] + self[1] * other[1] + self[2] * other[2]
     }
 }
 
-impl Index<usize> for Vector {
+
+impl<T: Frame> Index<usize> for Vector<T> {
     type Output = f64;
 
     fn index(&self, idx: usize) -> &Self::Output {
@@ -295,16 +407,29 @@ impl Index<usize> for Vector {
     }
 }
 
-impl PartialEq for Vector {
+
+impl<T: Frame> PartialEq for Vector<T> {
     fn eq(&self, other: &Self) -> bool {
         self.vector[0].eq(&other.vector[0]) &&
-        self.vector[1].eq(&other.vector[1]) &&
-        self.vector[2].eq(&other.vector[2])
+            self.vector[1].eq(&other.vector[1]) &&
+            self.vector[2].eq(&other.vector[2])
     }
 }
 
-impl Eq for Vector {}
+impl<T: Frame> Eq for Vector<T> {}
 
+impl<T: Frame, U: Frame> FramedElement<U> for Vector<T> {
+    type Item = Vector<U>;
+
+    fn change_frame(&self, new_frame: U) -> Self::Item {
+        let gcrf_coord = self.frame.to_gcrf(self.vector);
+
+        Vector {
+            vector: new_frame.from_gcrf(gcrf_coord),
+            frame: new_frame,
+        }
+    }
+}
 
 pub struct Angle {
     degrees: f64,
@@ -329,7 +454,7 @@ impl Angle {
     }
 
     /// Create an Angle form the value of the angle formed by the give vectors
-    pub fn from_vectors(a: &Vector, b: &Vector) -> Angle
+    pub fn from_vectors<T: Frame>(a: &Vector<T>, b: &Vector<T>) -> Angle
     {
         let den = a.length() * b.length();
         if den == 0f64 {
@@ -345,7 +470,7 @@ impl Angle {
     {
         Angle {
             degrees: self.degrees % 360.0,
-            radians: self.radians % (2.0*PI),
+            radians: self.radians % (2.0 * PI),
         }
     }
 
