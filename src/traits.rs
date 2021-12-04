@@ -14,8 +14,7 @@ use crate::utils::{
     Observation
 };
 
-//FIXME: I don't like the name of this trait
-pub trait FramedElement {
+pub trait Framable {
     // This function will convert the coordinates of this element into the new_frame
     fn change_frame(&mut self, new_frame: Rc<dyn Frame>);
 

@@ -14,7 +14,7 @@ use sgp4::sgp4::{ConstantsSet, OpsMode, SGP4};
 use crate::geometry::{Angle, Vector};
 use crate::frames::{TEME, GCRF};
 use crate::utils::{Coordinates, Observation, Observer};
-use crate::traits::{FramedElement, Observable, Frame};
+use crate::traits::{Framable, Observable, Frame};
 
 pub enum SatelliteClass {
     Unclassified,

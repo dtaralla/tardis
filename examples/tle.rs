@@ -6,7 +6,7 @@
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use tardis::geometry::Point;
 use tardis::tle::TLE;
-use tardis::traits::{Frame, FramedElement, Observable};
+use tardis::traits::{Frame, Framable, Observable};
 use tardis::frames::{
     TEME,
     ECEF

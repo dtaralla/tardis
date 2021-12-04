@@ -11,7 +11,7 @@ use crate::constants::EARTH_EQUATORIAL_RADIUS_KM;
 use crate::geometry::{Angle, Vector};
 use crate::frames;
 use crate::frames::{ECEF, GCRF};
-use crate::traits::FramedElement;
+use crate::traits::Framable;
 
 #[derive(Copy, Clone)]
 pub struct Coordinates {

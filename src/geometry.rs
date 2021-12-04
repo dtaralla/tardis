@@ -17,7 +17,7 @@ use std::ops::Index;
 use std::rc::Rc;
 use chrono::{DateTime, Timelike, Utc};
 use sgp4::sgp4::SGP4;
-use crate::traits::{Frame, FramedElement};
+use crate::traits::{Frame, Framable};
 use crate::kf5::{nutation, precession};
 use crate::time::{get_leap_seconds, jd_utc_to_tt};
 
@@ -181,7 +181,7 @@ impl Point {
     }
 }
 
-impl FramedElement for Point {
+impl Framable for Point {
     fn change_frame(&mut self, new_frame: Rc<dyn Frame>) {
         self.coordinates = match self.frame {
             Some(ref f) => new_frame.from_gcrf(f.to_gcrf(self.coordinates)),
@@ -427,7 +427,7 @@ impl PartialEq for Vector {
 
 impl Eq for Vector {}
 
-impl FramedElement for Vector {
+impl Framable for Vector {
     fn change_frame(&mut self, new_frame: Rc<dyn Frame>) {
         self.vector = match self.frame {
             Some(ref f) => new_frame.from_gcrf(f.to_gcrf(self.vector)),
