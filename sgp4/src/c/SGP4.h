@@ -13,7 +13,7 @@ typedef int bool;
 #define TRUE 1
 #define FALSE 0
 
-/**
+/*
  * This class implements the elsetrec data type from Vallado's SGP4 code.
  * 
  * From SGP4.h
