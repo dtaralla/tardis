@@ -157,7 +157,7 @@ impl Matrix {
 // Geometry elements
 pub struct Point {
     coordinates: [f64; 3],
-    frame: Option<Rc<Frame>>,
+    frame: Option<Rc<dyn Frame>>,
 }
 
 impl Point {
