@@ -11,7 +11,7 @@ use std::rc::Rc;
 use chrono::{Utc, DateTime, Duration, NaiveDate, NaiveTime};
 use sgp4::sgp4::{ConstantsSet, OpsMode, SGP4};
 
-use crate::geometry::{Angle, Vector};
+use crate::geometry::{Angle, Point, Vector};
 use crate::frames::{TEME, GCRF};
 use crate::utils::{Coordinates, Observation, Observer};
 use crate::traits::{Framable, Observable, Frame};
@@ -476,8 +476,8 @@ impl Observable for TLE {
         //1. Project res.position_vect() on observer plane.
         let teme_frame: Rc<dyn Frame> = Rc::new(TEME::new(time));
 
-        let mut pos_vect = Vector::from_tuple(res.position_vect());
-        pos_vect.set_frame(Rc::clone(&teme_frame));
+        let mut pos_point = Point::from_tuple(res.position_vect());
+        pos_point.set_frame(Rc::clone(&teme_frame));
 
         let mut speed_vect = Vector::from_tuple(res.velocity_vect());
         speed_vect.set_frame(Rc::clone(&teme_frame));
@@ -485,7 +485,7 @@ impl Observable for TLE {
         Ok(Observation {
             time,
             observer: *obs,
-            position: pos_vect,
+            position: pos_point,
             speed: speed_vect,
             brightness: 0f64
         })

@@ -47,7 +47,7 @@ impl Observable for Sun {
             observer: *observer,
             brightness: 1.0,
             time,
-            position: Vector::from_spherical(Angle::from_degrees(0.0), ecliptic_lon, EARTH_SUN_DISTANCE_KM as f64),
+            position: Vector::from_spherical(Angle::from_degrees(0.0), ecliptic_lon, EARTH_SUN_DISTANCE_KM as f64).to_point(),
             speed: Vector::from_cartesian(0.0, 0.0, 0.0),
         })
     }

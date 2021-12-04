@@ -8,7 +8,7 @@ use std::rc::Rc;
 use chrono::{DateTime, Utc};
 use sgp4::sgp4::SGP4Result;
 use crate::constants::EARTH_EQUATORIAL_RADIUS_KM;
-use crate::geometry::{Angle, Vector};
+use crate::geometry::{Angle, Point, Vector};
 use crate::frames;
 use crate::frames::{ECEF, GCRF};
 use crate::traits::Framable;
@@ -106,11 +106,11 @@ impl Observer {
 }
 
 ///
-/// Specifies where the observable obkect is in GCRF coordinates
+/// Specifies where the observable object is in GCRF coordinates
 pub struct Observation {
     pub time: DateTime<Utc>,        // The time at which this observation is valid
     pub observer: Observer,         // Observer on earth
-    pub position: Vector,
+    pub position: Point,
     pub speed: Vector,
     pub brightness: f64             // Brightness of the satellite
 }

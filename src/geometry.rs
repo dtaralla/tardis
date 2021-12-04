@@ -154,17 +154,6 @@ impl Matrix {
     }
 }
 
-/*
-TODO: This is a point with no Frame, used for convenience. A method
-   framed(frame: Frame) -> Point<Frame>
- will allow creation of a framed Point
- This is useful to create a simple point and have its frame set later
-
-struct NaivePoint {
-    coordinates: [f64; 3]
-}
-*/
-
 // Geometry elements
 pub struct Point {
     coordinates: [f64; 3],
@@ -176,6 +165,14 @@ impl Point {
     {
         Point {
             coordinates: [x, y, z],
+            frame: None,
+        }
+    }
+
+    pub fn from_tuple(t: [f64; 3]) -> Point
+    {
+        Point {
+            coordinates: t,
             frame: None,
         }
     }
@@ -284,6 +281,11 @@ impl Vector {
     pub fn angle(&self, other: &Vector) -> Angle
     {
         Angle::from_vectors(self, other)
+    }
+
+    pub fn to_point(&self) -> Point
+    {
+        Point::from_tuple(self.vector)
     }
 
     /// Return the vector projected on the given plane
