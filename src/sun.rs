@@ -9,9 +9,10 @@ use crate::geometry::{Angle, Vector};
 use crate::traits::Observable;
 use crate::utils::{Observation, Observer};
 
-const EARTH_SUN_DISTANCE_KM: u64 = 147_440_000;
+pub const EARTH_SUN_DISTANCE_KM: u64 = 147_440_000;
+pub const SUN_RADIUS_KM: u64 = 696_340;
 
-struct Sun {
+pub struct Sun {
     val: u32
 }
 
