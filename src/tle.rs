@@ -173,25 +173,21 @@ impl TLE {
             Err(e) => return Err(e),
         };
 
-        println!("1");
         let ndot = match TLE::parse_float(&line1[33..43]) {
             Ok(n) => n,
             Err(e) => return Err(e),
         };
 
-        println!("1");
         let ndotdot = match TLE::parse_pow_10(&line1[44..52]) {
             Ok(n) => n,
             Err(e) => return Err(e),
         };
 
-        println!("1");
         let b_star = match TLE::parse_pow_10(&line1[53..61]) {
             Ok(n) => n,
             Err(e) => return Err(e),
         };
 
-        println!("1");
         let set_number = match TLE::parse_number(&line1[64..68]) {
             Ok(n) => n as u16,
             Err(e) => return Err(e),
@@ -202,13 +198,11 @@ impl TLE {
             Err(e) => return Err(e),
         };
 
-        println!("1");
         let right_ascension = match TLE::parse_float(&line2[17..25]) {
             Ok(n) => Angle::from_degrees(n),
             Err(e) => return Err(e),
         };
 
-        println!("1");
         let eccentricity = match TLE::parse_number(&line2[26..33]) {
             Ok(n) => n as f64 * 10e-8,
             Err(e) => return Err(e),
@@ -219,19 +213,16 @@ impl TLE {
             Err(e) => return Err(e),
         };
 
-        println!("1");
         let mean_anomaly = match TLE::parse_float(&line2[43..51]) {
             Ok(n) => Angle::from_degrees(n),
             Err(e) => return Err(e),
         };
 
-        println!("1");
         let mean_motion = match TLE::parse_float(&line2[52..63]) {
             Ok(n) => n,
             Err(e) => return Err(e),
         };
 
-        println!("1");
         let revolutions = match TLE::parse_number(&line2[63..68]) {
             Ok(n) => n as u32,
             Err(e) => return Err(e),
@@ -299,8 +290,6 @@ impl TLE {
             Err(e) => return Err(e.to_string()),
         };
 
-        println!("{}", number);
-
         match number.parse() {
             Ok(n) => Ok(n),
             Err(e) => Err(e.to_string())
@@ -322,13 +311,11 @@ impl TLE {
 
     fn parse_pow_10(bytes: &[u8]) -> Result<f64, String>
     {
-        println!("{}", String::from_utf8_lossy(&bytes[0..bytes.len() - 2]));
         let base = match TLE::parse_number_i(&bytes[0..bytes.len() - 2]) {
             Ok(n) => n as f64,
             Err(e) => return Err(e),
         };
 
-        println!("{}", String::from_utf8_lossy(&bytes[bytes.len() - 2..bytes.len()]));
         let exp = match TLE::parse_number(&bytes[bytes.len() - 2..bytes.len()]) {
             Ok(n) => n,
             Err(e) => return Err(e),
