@@ -193,6 +193,14 @@ impl Framable for Point {
     }
 }
 
+impl Index<usize> for Point {
+    type Output = f64;
+
+    fn index(&self, idx: usize) -> &Self::Output {
+        &self.coordinates[idx]
+    }
+}
+
 impl fmt::Display for Point {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let frame_name = match self.frame {
