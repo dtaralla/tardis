@@ -8,11 +8,7 @@ use chrono::{
     DateTime,
     Utc
 };
-use crate::utils::{
-    Coordinates,
-    Observer,
-    Observation
-};
+use crate::utils::Observation;
 
 pub trait Framable {
     // This function will convert the coordinates of this element into the new_frame
@@ -44,6 +40,6 @@ pub trait Frame {
 
 pub trait Observable {
     fn name(&self) -> String;
-    fn observation(&self, observer: &Observer) -> Result<Observation, String>;
-    fn observation_at(&self, observer: &Observer, time: DateTime<Utc>) -> Result<Observation, String>;
+    fn observation(&self) -> Result<Observation, String>;
+    fn observation_at(&self, time: DateTime<Utc>) -> Result<Observation, String>;
 }

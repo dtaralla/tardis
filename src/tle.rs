@@ -3,17 +3,14 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-use std::{
-    fmt,
-    f64::consts::PI,
-};
+use std::fmt;
 use std::rc::Rc;
 use chrono::{Utc, DateTime, Duration, NaiveDate, NaiveTime};
 use sgp4::sgp4::{ConstantsSet, OpsMode, SGP4};
 
 use crate::geometry::{Angle, Point, Vector};
-use crate::frames::{TEME, GCRF};
-use crate::utils::{Coordinates, Observation, Observer};
+use crate::frames::TEME;
+use crate::utils::Observation;
 use crate::traits::{Framable, Observable, Frame};
 
 pub enum SatelliteClass {
@@ -405,30 +402,13 @@ impl Observable for TLE {
         self.name.clone()
     }
 
-    fn observation(&self, obs: &Observer) -> Result<Observation, String>
+    fn observation(&self) -> Result<Observation, String>
     {
-        self.observation_at(obs, Utc::now())
+        self.observation_at(Utc::now())
     }
 
-    fn observation_at(&self, obs: &Observer, time: DateTime<Utc>) -> Result<Observation, String>
+    fn observation_at(&self, time: DateTime<Utc>) -> Result<Observation, String>
     {
-        //let I = Vector::from_tuple([1f64, 0f64, 0f64]);
-        //let J = Vector::from_tuple([0f64, 1f64, 0f64]);
-        //let K = Vector::from_tuple([0f64, 0f64, 1f64]);
-
-        // Initialize coordinate references
-        /*let ecliptic_ref = Referential::base_referential();
-        let horizontal_ref = Rc::new(ecliptic_ref.make_referential(
-            None,
-            Some(
-                [
-                    Angle::from_radians(0.0),
-                    Angle::from_radians(0.0),
-                    Angle::from_radians(0.0)
-                ]
-            )
-        ));*/
-
         let sgp4 = match SGP4::new(
             OpsMode::Afspc,
             ConstantsSet::Set72,
@@ -456,11 +436,6 @@ impl Observable for TLE {
             }
         };
 
-        //println!("[{}] Satellite {} is at {} km moving at {} km/s", res.time(), self.name(), res.altitude(), res.velocity());
-        //println!("{}", Angle::from_vectors(&I, &J));
-
-        /// Compute azimuth angle //TODO: move it to a Frame conversion
-        //1. Project res.position_vect() on observer plane.
         let teme_frame: Rc<dyn Frame> = Rc::new(TEME::new(time));
 
         let mut pos_point = Point::from_tuple(res.position_vect());
@@ -471,7 +446,6 @@ impl Observable for TLE {
 
         Ok(Observation {
             time,
-            observer: *obs,
             position: pos_point,
             speed: speed_vect,
             brightness: 0f64

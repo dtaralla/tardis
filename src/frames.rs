@@ -185,6 +185,32 @@ impl Frame for ECEF {
     }
 }
 
+pub struct ICRF {
+    date_time: DateTime<Utc>,
+}
+
+impl ICRF {
+    pub fn new(date_time: DateTime<Utc>) -> ICRF {
+        ICRF {
+            date_time
+        }
+    }
+}
+
+impl Frame for ICRF {
+    fn name(&self) -> String {
+        String::from("ICRF")
+    }
+
+    fn to_gcrf(&self, point: [f64; 3]) -> [f64; 3] {
+        todo!()
+    }
+
+    fn from_gcrf(&self, point: [f64; 3]) -> [f64; 3] {
+        todo!()
+    }
+}
+
 // ECI: (Earth Center Inertial) -> Not turning with earth
 //  - GCRS  (Geocentric Celestial Reference Frame)
 //  - TEME  (True Equator, Mean Equinox)

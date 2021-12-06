@@ -15,11 +15,7 @@ use std::{
 use std::fmt::{Display, Formatter};
 use std::ops::Index;
 use std::rc::Rc;
-use chrono::{DateTime, Timelike, Utc};
-use sgp4::sgp4::SGP4;
 use crate::traits::{Frame, Framable};
-use crate::kf5::{nutation, precession};
-use crate::time::{get_leap_seconds, jd_utc_to_tt};
 
 pub enum RotationAxis {
     ZYZ,
@@ -82,10 +78,6 @@ impl Matrix {
             ]
         };
 
-        let mut i = 0;
-        let mut j = 0;
-        let mut k = 0;
-
         for i in 0..3 {
             for j in 0..3 {
                 for k in 0..3 {
@@ -131,17 +123,17 @@ impl Matrix {
     }
 
     pub fn rotate(&self, point: [f64; 3]) -> [f64; 3] {
-        ///
-        /// M x p:
-        ///
-        /// x1 x2 x3     xp
-        /// y1 y2 y3  x  yp
-        /// z1 z2 z3     zp
-        ///
-        /// xp' = x1 * xp + x2 * yp + x3 * zp
-        /// yp' = y1 * xp + y2 * yp + y3 * zp
-        /// zp' = z1 * xp + z2 * yp + z3 * zp
-        ///
+        //
+        // M x p:
+        //
+        // x1 x2 x3     xp
+        // y1 y2 y3  x  yp
+        // z1 z2 z3     zp
+        //
+        // xp' = x1 * xp + x2 * yp + x3 * zp
+        // yp' = y1 * xp + y2 * yp + y3 * zp
+        // zp' = z1 * xp + z2 * yp + z3 * zp
+        //
 
         let m = self.values;
         let p = point;
@@ -329,6 +321,7 @@ impl Vector {
 
     pub fn is_null(&self) -> bool
     {
+        // TODO: f64 is not precise, use an epsilon comparison
         self[0] == 0f64 && self[1] == 0f64 && self[2] == 0f64
     }
 }
@@ -487,7 +480,7 @@ impl Angle {
         Angle::from_radians(cos.acos())
     }
 
-    pub fn canonical(&self) -> Angle
+    pub fn normalized(&self) -> Angle
     {
         Angle {
             degrees: self.degrees % 360.0,

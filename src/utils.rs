@@ -6,12 +6,10 @@
 use std::fmt;
 use std::rc::Rc;
 use chrono::{DateTime, Utc};
-use sgp4::sgp4::SGP4Result;
 use crate::constants::EARTH_EQUATORIAL_RADIUS_KM;
 use crate::geometry::{Angle, Point, Vector};
-use crate::frames;
-use crate::frames::{ECEF, GCRF};
-use crate::traits::Framable;
+use crate::frames::ECEF;
+use crate::traits::{Framable, Frame};
 
 #[derive(Copy, Clone)]
 pub struct Coordinates {
@@ -53,22 +51,15 @@ impl fmt::Display for Coordinates {
 #[derive(Copy, Clone)]
 pub struct Observer {
     coordinates: Coordinates,   // Coordinates on Earth
-    // This should be more generic: Earth should be an observer
+    time: DateTime<Utc>
 }
 
 impl Observer {
-    pub fn new(coordinates: Coordinates) -> Observer
+    pub fn new(coordinates: Coordinates, time: DateTime<Utc>) -> Observer
     {
         Observer {
             coordinates,
-        }
-    }
-
-    pub fn earth() -> Observer
-    {
-        //FIXME: Should return an observer that is the center of earth --> Only coordinates is not enough
-        Observer {
-            coordinates: Coordinates::new(0.0, 0.0)
+            time
         }
     }
 
@@ -76,40 +67,26 @@ impl Observer {
     {
         self.coordinates
     }
+}
 
-    /*pub fn plane(&self) -> Result<Plane, String>
-    {
-        let obs_vector = self.coordinates.to_vector();
+impl Frame for Observer {
+    fn name(&self) -> String {
+        String::from("Observer at ") + self.coordinates.to_string().as_str()
+    }
 
-        // Find perpendicular vectors to the obs vector
-        //TODO: Should also support vectors that are on base axis (like [0, 0, earth_radius])
-        //TODO: This can be managed by the Plane struct: add a Plane::from_normal(normal: &Vector)
-        let base_vect1 = &obs_vector + &Vector::from_cartesian(
-            -obs_vector[1],
-            obs_vector[0],
-            0.,
-        );
+    fn to_gcrf(&self, point: [f64; 3]) -> [f64; 3] {
+        point
+    }
 
-        let base_vect2 = &obs_vector + &Vector::from_cartesian(
-            -obs_vector[2],
-            0.,
-            obs_vector[0],
-        );
-
-        //println!("{} {} {}", obs_vector, base_vect1, base_vect2);
-
-        Plane::from_vectors_normal(&obs_vector,
-                                        &base_vect1,
-                                        &base_vect2
-        )
-    }*/
+    fn from_gcrf(&self, point: [f64; 3]) -> [f64; 3] {
+        point
+    }
 }
 
 ///
 /// Specifies where the observable object is in GCRF coordinates
 pub struct Observation {
     pub time: DateTime<Utc>,        // The time at which this observation is valid
-    pub observer: Observer,         // Observer on earth
     pub position: Point,
     pub speed: Vector,
     pub brightness: f64             // Brightness of the satellite
@@ -117,9 +94,8 @@ pub struct Observation {
 
 impl fmt::Display for Observation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Observation at {} from {}: position: {} speed: {}",
+        write!(f, "Observation at {}: position: {} speed: {}",
                self.time,
-               self.observer.coordinates,
                self.position,
                self.speed)
     }
