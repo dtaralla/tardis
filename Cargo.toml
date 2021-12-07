@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 chrono = "0.4"
 sgp4 = { path = "sgp4", version = "0.1.0", optional = false }
+rust-spice = { git = "https://github.com/cazou/rust-spice.git", branch = "include-c-lib", optional = false }
 
 [[example]]
 name = "tle"
