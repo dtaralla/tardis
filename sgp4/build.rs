@@ -16,7 +16,7 @@ fn main() {
     // Use the `cc` crate to build a C file and statically link it.
     cc::Build::new()
         .file("src/c/sgp4.c")
-        .flag("-Wno-dangling-else")
+        .flag_if_supported("-Wno-dangling-else")
         .compile("libsgp4.a");
 
     let bindings = bindgen::Builder::default()
