@@ -235,7 +235,7 @@ impl SGP4 {
     pub fn compute(&self, time: DateTime<Utc>) -> Result<SGP4Result, SGP4Error>
     {
         let ret: i32;
-        let minutes: f64 = time.signed_duration_since(self.epoch).num_seconds() as f64 / 60f64;
+        let minutes: f64 = time.signed_duration_since(self.epoch).num_milliseconds() as f64 / 60_000f64;
 
         let mut r: [f64; 3] = [0f64, 0f64, 0f64]; //FIXME: is this allowed to be passed to a C function (use as_mut_ptr() ?) ?
         let mut v: [f64; 3] = [0f64, 0f64, 0f64];
