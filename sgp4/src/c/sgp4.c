@@ -1892,13 +1892,6 @@
         }
 
     }   // getgravconst
-
-    
-    double fmod(double numer, double denom)
-    {
-        long tquot = (long)floor(numer/denom);
-        return numer-tquot*denom;
-    }
     
     /* -----------------------------------------------------------------------------
     *
