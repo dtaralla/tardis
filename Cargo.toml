@@ -8,7 +8,47 @@ edition = "2021"
 [dependencies]
 chrono = "0.4"
 sgp4 = { path = "sgp4", version = "0.1.0", optional = false }
+simple-error = "0.2"
+
+[dependencies.reqwest]
+version = "0.11"
+features = ["blocking"]
+optional = true
+
+[dependencies.bevy]
+git = "https://github.com/bevyengine/bevy"
+branch = "main"
+optional = true
+
+[dependencies.bevy_easings]
+git = "https://github.com/dtaralla/bevy_easings"
+branch = "bevy_main"
+optional = true
+
+[dependencies.smooth-bevy-cameras]
+git = "https://github.com/dtaralla/smooth-bevy-cameras"
+branch = "track_main"
+optional = true
+
+[dependencies.viewport-orientation-gizmo]
+git = "https://github.com/dtaralla/viewport-orientation-gizmo"
+branch = "main"
+features = ["click-reaction"]
+optional = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies.bevy]
+git = "https://github.com/bevyengine/bevy"
+branch = "main"
+features = ["x11", "wayland"]
+default-features = false
+
+[features]
+viewer = ["bevy", "bevy_easings", "smooth-bevy-cameras", "viewport-orientation-gizmo", "reqwest"]
 
 [[example]]
 name = "tle"
 path = "examples/tle.rs"
+
+[[example]]
+name = "with_bevy_viewer"
+required-features = ["viewer"]
