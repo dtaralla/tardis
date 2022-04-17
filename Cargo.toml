@@ -16,23 +16,22 @@ features = ["blocking"]
 optional = true
 
 [dependencies.bevy]
-git = "https://github.com/bevyengine/bevy"
-branch = "main"
+version = "0.7"
 optional = true
 
 [dependencies.bevy_easings]
-git = "https://github.com/dtaralla/bevy_easings"
-branch = "bevy_main"
+git = "https://github.com/vleue/bevy_easings"
+branch = "dependabot/cargo/bevy-0.7"
 optional = true
 
 [dependencies.smooth-bevy-cameras]
 git = "https://github.com/dtaralla/smooth-bevy-cameras"
-branch = "track_main"
+branch = "allow_pausing_interpolation"
 optional = true
 
 [dependencies.viewport-orientation-gizmo]
 git = "https://github.com/dtaralla/viewport-orientation-gizmo"
-branch = "main"
+branch = "RELEASE/0.3"
 features = ["click-reaction"]
 optional = true
 
